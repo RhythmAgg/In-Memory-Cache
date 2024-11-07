@@ -30,28 +30,53 @@ func getEvictionPolicy(policy string) evictionPolicies.EvictionPolicy {
 	}
 }
 
+// StartTTLExpiryCleanup starts a background goroutine to clean up expired items periodically
+func (c *Cache) StartTTLExpiryCleanup(interval time.Duration) {
+	go func() {
+		for {
+			time.Sleep(interval)
+			c.mu.Lock()
+			for key, item := range c.items {
+				if time.Now().After(item.Expiration) {
+					c.removeItem(key)
+				}
+			}
+			c.mu.Unlock()
+		}
+	}()
+}
+
 // NewCache creates a new Cache instance
-func NewCache(capacity int, policy string) *Cache {
-	return &Cache{
+func NewCache(capacity int, policy string, interval int) *Cache {
+	cache := &Cache{
 		items:          make(map[string]*common.CacheItem),
 		evictionPolicy: getEvictionPolicy(policy),
 		capacity:       capacity,
 	}
+	if interval > 0 {
+		cache.StartTTLExpiryCleanup(time.Duration(interval) * time.Second)
+	}
+	return cache
 }
 
 // Set adds or updates an item in the cache
-func (c *Cache) Set(key string, value interface{}) {
+func (c *Cache) Set(key string, value interface{}, ttl ...int) {
+	if len(ttl) == 0 {
+		ttl = append(ttl, 1800)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	expiration := time.Now().Add(time.Duration(ttl[0]) * time.Second)
 	if item, exists := c.items[key]; exists {
 		item.Value = value
 		item.Timestamp = time.Now()
+		item.Expiration = expiration
 		c.evictionPolicy.OnAccess(item)
 		return
 	}
 
-	item := &common.CacheItem{Key: key, Value: value, Timestamp: time.Now()}
+	item := &common.CacheItem{Key: key, Value: value, Timestamp: time.Now(), Expiration: expiration}
 
 	// Check if the cache is full
 	if len(c.items) >= c.capacity {
@@ -71,6 +96,11 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 
 	item, exists := c.items[key]
 	if !exists {
+		return nil, false
+	}
+
+	if time.Now().After(item.Expiration) {
+		c.removeItem(key)
 		return nil, false
 	}
 
