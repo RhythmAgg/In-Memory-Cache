@@ -134,6 +134,29 @@ func TestLFUEvictionPolicyWithCache(t *testing.T) {
 	}
 }
 
+func TestRandomEvictionPolicyWithCache(t *testing.T) {
+	// Create a cache with Random eviction policy and capacity of 3
+	c := cache.NewCache(3, "Random", 0)
+
+	c.Set("a", 1)
+	c.Set("b", 2)
+	c.Set("c", 3)
+	c.Set("d", 4)
+
+	evictedItems := []string{"a", "b", "c"}
+	evicted := false
+	for _, item := range evictedItems {
+		if _, exists := c.Get(item); !exists {
+			evicted = true
+			break
+		}
+	}
+
+	if !evicted {
+		t.Errorf("Expected one of the items 'a', 'b', or 'c' to be evicted, but none were")
+	}
+}
+
 func TestClearCache(t *testing.T) {
 	// Create a cache with a capacity of 3 and any eviction policy (e.g., FIFO)
 	c := cache.NewCache(3, "FIFO", 0)

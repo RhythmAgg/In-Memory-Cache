@@ -25,6 +25,8 @@ func getEvictionPolicy(policy string) evictionPolicies.EvictionPolicy {
 		return evictionPolicies.NewLIFOEvictionPolicy()
 	case "LFU":
 		return evictionPolicies.NewLFUEvictionPolicy()
+	case "Random":
+		return evictionPolicies.NewRandomEvictionPolicy()
 	default:
 		return evictionPolicies.NewFIFOEvictionPolicy()
 	}
