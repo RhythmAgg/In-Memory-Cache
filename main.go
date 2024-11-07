@@ -6,8 +6,8 @@ import (
 )
 
 func main() {
-	fifoCache := cache.NewCache(3, "FIFO", 0)
-	lruCache := cache.NewCache(3, "LRU", 0)
+	fifoCache := cache.NewCache(3, "FIFO", 0, 0, false)
+	lruCache := cache.NewCache(3, "LRU", 0, 0, false)
 
 	fifoCache.Set("a", 1)
 	fifoCache.Set("b", 2)

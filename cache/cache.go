@@ -3,6 +3,7 @@ package cache
 import (
 	"enterpret/backend/common"
 	"enterpret/backend/evictionPolicies"
+	"log"
 	"sync"
 	"time"
 )
@@ -48,15 +49,36 @@ func (c *Cache) StartTTLExpiryCleanup(interval time.Duration) {
 	}()
 }
 
+func (c *Cache) StartCachePersistence(interval time.Duration) {
+	go func() {
+		for {
+			time.Sleep(interval)
+			err := SaveCacheToJSON(c, "cache.json")
+			if err != nil {
+				log.Println("Error saving cache:", err)
+			}
+		}
+	}()
+}
+
 // NewCache creates a new Cache instance
-func NewCache(capacity int, policy string, interval int) *Cache {
+func NewCache(capacity int, policy string, ttlInterval int, saveInterval int, load bool) *Cache {
 	cache := &Cache{
 		items:          make(map[string]*common.CacheItem),
 		evictionPolicy: getEvictionPolicy(policy),
 		capacity:       capacity,
 	}
-	if interval > 0 {
-		cache.StartTTLExpiryCleanup(time.Duration(interval) * time.Second)
+	if load {
+		err := LoadCacheFromJSON(cache, "cache.json")
+		if err != nil {
+			log.Println("Error loading cache:", err)
+		}
+	}
+	if ttlInterval > 0 {
+		cache.StartTTLExpiryCleanup(time.Duration(ttlInterval) * time.Second)
+	}
+	if saveInterval > 0 {
+		cache.StartCachePersistence(time.Duration(saveInterval) * time.Second)
 	}
 	return cache
 }

@@ -2,12 +2,13 @@ package main
 
 import (
 	"enterpret/backend/cache"
+	"os"
 	"testing"
 	"time"
 )
 
 func TestCacheSetAndGet(t *testing.T) {
-	c := cache.NewCache(2, "FIFO", 0)
+	c := cache.NewCache(2, "FIFO", 0, 0, false)
 
 	c.Set("a", 1)
 	c.Set("b", 2)
@@ -21,7 +22,7 @@ func TestCacheSetAndGet(t *testing.T) {
 }
 
 func TestCacheEvictionPolicy(t *testing.T) {
-	c := cache.NewCache(2, "FIFO", 0)
+	c := cache.NewCache(2, "FIFO", 0, 0, false)
 
 	c.Set("a", 1)
 	c.Set("b", 2)
@@ -40,7 +41,7 @@ func TestCacheEvictionPolicy(t *testing.T) {
 
 func TestFIFOEvictionPolicyWithCache(t *testing.T) {
 	// Create a cache with FIFO eviction policy and capacity of 2
-	c := cache.NewCache(2, "FIFO", 0)
+	c := cache.NewCache(2, "FIFO", 0, 0, false)
 
 	c.Set("a", 1)
 	c.Set("b", 2)
@@ -60,7 +61,7 @@ func TestFIFOEvictionPolicyWithCache(t *testing.T) {
 
 func TestLIFOEvictionPolicyWithCache(t *testing.T) {
 	// Create a cache with LIFO eviction policy and capacity of 2
-	c := cache.NewCache(2, "LIFO", 0)
+	c := cache.NewCache(2, "LIFO", 0, 0, false)
 
 	c.Set("a", 1)
 	c.Set("b", 2)
@@ -79,7 +80,7 @@ func TestLIFOEvictionPolicyWithCache(t *testing.T) {
 
 func TestLRUEvictionPolicyWithCache(t *testing.T) {
 	// Create a cache with LRU eviction policy and capacity of 2
-	c := cache.NewCache(2, "LRU", 0)
+	c := cache.NewCache(2, "LRU", 0, 0, false)
 
 	c.Set("a", 1)
 	c.Set("b", 2)
@@ -114,7 +115,7 @@ func TestLRUEvictionPolicyWithCache(t *testing.T) {
 
 func TestLFUEvictionPolicyWithCache(t *testing.T) {
 	// Create a cache with LFU eviction policy and a capacity of 2
-	c := cache.NewCache(2, "LFU", 0)
+	c := cache.NewCache(2, "LFU", 0, 0, false)
 
 	c.Set("a", 1)
 	c.Set("b", 2)
@@ -136,7 +137,7 @@ func TestLFUEvictionPolicyWithCache(t *testing.T) {
 
 func TestRandomEvictionPolicyWithCache(t *testing.T) {
 	// Create a cache with Random eviction policy and capacity of 3
-	c := cache.NewCache(3, "Random", 0)
+	c := cache.NewCache(3, "Random", 0, 0, false)
 
 	c.Set("a", 1)
 	c.Set("b", 2)
@@ -159,7 +160,7 @@ func TestRandomEvictionPolicyWithCache(t *testing.T) {
 
 func TestClearCache(t *testing.T) {
 	// Create a cache with a capacity of 3 and any eviction policy (e.g., FIFO)
-	c := cache.NewCache(3, "FIFO", 0)
+	c := cache.NewCache(3, "FIFO", 0, 0, false)
 
 	c.Set("a", 1)
 	c.Set("b", 2)
@@ -180,7 +181,7 @@ func TestClearCache(t *testing.T) {
 
 func TestTTLCacheCleanup(t *testing.T) {
 	// Create a new cache with a capacity of 2 and TTL cleanup interval of 1 second
-	c := cache.NewCache(3, "FIFO", 1)
+	c := cache.NewCache(3, "FIFO", 1, 0, false)
 
 	c.Set("a", 1, 2)
 	c.Set("b", 2, 5)
@@ -188,10 +189,43 @@ func TestTTLCacheCleanup(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	if _, exists := c.Get("a"); exists {
-		t.Fatalf("Expected item 'a' to be removed, but it still exists")
+		t.Errorf("Expected item 'a' to be removed, but it still exists")
 	}
 
 	if _, exists := c.Get("b"); !exists {
-		t.Fatalf("Expected item 'b' to still be in the cache, but it was removed")
+		t.Errorf("Expected item 'b' to still be in the cache, but it was removed")
 	}
+}
+
+func TestCachePersistence(t *testing.T) {
+	// Create a new cache with a capacity of 2 and Cache persistence enabled
+	os.Remove("cache.json")
+	c := cache.NewCache(2, "FIFO", 0, 1, false)
+
+	c.Set("a", 1)
+
+	time.Sleep(2 * time.Second)
+
+	_, err := os.Stat("cache.json")
+	if os.IsNotExist(err) {
+		t.Errorf("Error opening file: %v", err)
+	}
+	os.Remove("cache.json")
+}
+
+func TestLoadSavedCache(t *testing.T) {
+	os.Remove("cache.json")
+	c := cache.NewCache(2, "FIFO", 0, 1, false)
+
+	c.Set("a", 1)
+
+	time.Sleep(2 * time.Second)
+
+	// Create a new cache with a capacity of 2 and load the cache state from the json file
+	c2 := cache.NewCache(2, "FIFO", 0, 0, true)
+
+	if _, exists := c2.Get("a"); !exists {
+		t.Errorf("Expected 'a' to be present in the cache")
+	}
+	os.Remove("cache.json")
 }
