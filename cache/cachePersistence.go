@@ -2,7 +2,7 @@ package cache
 
 import (
 	"encoding/json"
-	"enterpret/backend/common"
+	"enterpret/backend/shared"
 	"os"
 )
 
@@ -36,7 +36,7 @@ func LoadCacheFromJSON(c *Cache, filename string) error {
 	defer file.Close()
 
 	decoder := json.NewDecoder(file)
-	items := make(map[string]*common.CacheItem)
+	items := make(map[string]*shared.CacheItem)
 	if err := decoder.Decode(&items); err != nil {
 		return err
 	}

@@ -1,43 +1,43 @@
 package evictionPolicies
 
 import (
-	"enterpret/backend/common"
+	"enterpret/backend/shared"
 )
 
 type LFUEvictionPolicy struct {
-	order       map[string]*common.CacheItem
+	order       map[string]*shared.CacheItem
 	frequencies map[string]int
 }
 
 func NewLFUEvictionPolicy() *LFUEvictionPolicy {
 	// Initialize the order and frequencies maps
 	return &LFUEvictionPolicy{
-		order:       make(map[string]*common.CacheItem),
+		order:       make(map[string]*shared.CacheItem),
 		frequencies: make(map[string]int),
 	}
 }
 
-func (p *LFUEvictionPolicy) OnAdd(item *common.CacheItem) {
+func (p *LFUEvictionPolicy) OnAdd(item *shared.CacheItem) {
 	// Add the item to the order map
 	p.order[item.Key] = item
 	p.frequencies[item.Key] = 1
 }
 
-func (p *LFUEvictionPolicy) OnAccess(item *common.CacheItem) {
+func (p *LFUEvictionPolicy) OnAccess(item *shared.CacheItem) {
 	// Increment the frequency of the accessed item
 	if _, exists := p.frequencies[item.Key]; exists {
 		p.frequencies[item.Key]++
 	}
 }
 
-func (p *LFUEvictionPolicy) OnEvict() *common.CacheItem {
+func (p *LFUEvictionPolicy) OnEvict() *shared.CacheItem {
 	// Check if the order map is empty
 	if len(p.order) == 0 {
 		return nil
 	}
 
 	// Find the item with the lowest frequency
-	var leastFreqItem *common.CacheItem
+	var leastFreqItem *shared.CacheItem
 	lowestFrequency := int(^uint(0) >> 1)
 
 	for key, item := range p.order {

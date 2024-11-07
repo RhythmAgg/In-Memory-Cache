@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"enterpret/backend/common"
 	"enterpret/backend/evictionPolicies"
+	"enterpret/backend/shared"
 	"log"
 	"sync"
 	"time"
@@ -11,7 +11,7 @@ import (
 // Cache is a thread-safe in-memory cache with support for custom eviction policies
 type Cache struct {
 	mu             sync.Mutex
-	items          map[string]*common.CacheItem
+	items          map[string]*shared.CacheItem
 	evictionPolicy evictionPolicies.EvictionPolicy
 	capacity       int
 }
@@ -64,7 +64,7 @@ func (c *Cache) StartCachePersistence(interval time.Duration) {
 // NewCache creates a new Cache instance
 func NewCache(capacity int, policy string, ttlInterval int, saveInterval int, load bool) *Cache {
 	cache := &Cache{
-		items:          make(map[string]*common.CacheItem),
+		items:          make(map[string]*shared.CacheItem),
 		evictionPolicy: getEvictionPolicy(policy),
 		capacity:       capacity,
 	}
@@ -100,7 +100,7 @@ func (c *Cache) Set(key string, value interface{}, ttl ...int) {
 		return
 	}
 
-	item := &common.CacheItem{Key: key, Value: value, Timestamp: time.Now(), Expiration: expiration}
+	item := &shared.CacheItem{Key: key, Value: value, Timestamp: time.Now(), Expiration: expiration}
 
 	// Check if the cache is full
 	if len(c.items) >= c.capacity {
@@ -146,5 +146,5 @@ func (c *Cache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.items = make(map[string]*common.CacheItem)
+	c.items = make(map[string]*shared.CacheItem)
 }
