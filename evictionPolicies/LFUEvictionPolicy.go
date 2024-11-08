@@ -5,28 +5,45 @@ import (
 )
 
 type LFUEvictionPolicy struct {
-	order       map[string]*shared.CacheItem
-	frequencies map[string]int
+	order           map[string]*shared.CacheItem
+	keyTofrequency  map[string]int
+	frequencyToKeys map[int]*shared.OrderedMap
+	minimumFreq     int
 }
 
 func NewLFUEvictionPolicy() *LFUEvictionPolicy {
 	// Initialize the order and frequencies maps
 	return &LFUEvictionPolicy{
-		order:       make(map[string]*shared.CacheItem),
-		frequencies: make(map[string]int),
+		order:           make(map[string]*shared.CacheItem),
+		keyTofrequency:  make(map[string]int),
+		frequencyToKeys: make(map[int]*shared.OrderedMap),
 	}
 }
 
 func (p *LFUEvictionPolicy) OnAdd(item *shared.CacheItem) {
 	// Add the item to the order map
 	p.order[item.Key] = item
-	p.frequencies[item.Key] = 1
+	p.keyTofrequency[item.Key] = 1
+	if _, exists := p.frequencyToKeys[1]; !exists {
+		p.frequencyToKeys[1] = shared.NewOrderedMap()
+	}
+	p.frequencyToKeys[1].Set(item.Key, true)
+	p.minimumFreq = 1
 }
 
 func (p *LFUEvictionPolicy) OnAccess(item *shared.CacheItem) {
 	// Increment the frequency of the accessed item
-	if _, exists := p.frequencies[item.Key]; exists {
-		p.frequencies[item.Key]++
+	if _, exists := p.keyTofrequency[item.Key]; exists {
+		freq := p.keyTofrequency[item.Key]
+		p.keyTofrequency[item.Key] = freq + 1
+		p.frequencyToKeys[freq].Delete(item.Key)
+		if _, exists := p.frequencyToKeys[freq+1]; !exists {
+			p.frequencyToKeys[freq+1] = shared.NewOrderedMap()
+		}
+		p.frequencyToKeys[freq+1].Set(item.Key, true)
+		if freq == p.minimumFreq && len(p.frequencyToKeys[freq].Values) == 0 {
+			p.minimumFreq++
+		}
 	}
 }
 
@@ -36,20 +53,21 @@ func (p *LFUEvictionPolicy) OnEvict() *shared.CacheItem {
 		return nil
 	}
 
-	// Find the item with the lowest frequency
-	var leastFreqItem *shared.CacheItem
-	lowestFrequency := int(^uint(0) >> 1)
-
-	for key, item := range p.order {
-		if frequency, exists := p.frequencies[key]; exists && frequency < lowestFrequency {
-			lowestFrequency = frequency
-			leastFreqItem = item
-		}
+	leastFreqKey := p.frequencyToKeys[p.minimumFreq].FirstElement()
+	if leastFreqKey == "" {
+		return nil
 	}
 
-	if leastFreqItem != nil {
-		delete(p.order, leastFreqItem.Key)
-		delete(p.frequencies, leastFreqItem.Key)
+	itemToEvict := p.order[leastFreqKey]
+
+	delete(p.order, leastFreqKey)
+	delete(p.keyTofrequency, leastFreqKey)
+	p.frequencyToKeys[p.minimumFreq].Delete(leastFreqKey)
+
+	if len(p.frequencyToKeys[p.minimumFreq].Values) == 0 {
+		delete(p.frequencyToKeys, p.minimumFreq)
+		p.minimumFreq++
 	}
-	return leastFreqItem
+
+	return itemToEvict
 }
