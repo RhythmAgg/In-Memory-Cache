@@ -4,36 +4,34 @@ import "enterpret/backend/shared"
 
 type LRUEvictionPolicy struct {
 	// Maintain the order of items in a slice
-	order []*shared.CacheItem
+	order *shared.OrderedMap
 }
 
 func NewLRUEvictionPolicy() *LRUEvictionPolicy {
 	// Initialize the order slice
-	return &LRUEvictionPolicy{order: make([]*shared.CacheItem, 0)}
+	return &LRUEvictionPolicy{order: shared.NewOrderedMap()}
 }
 
 func (p *LRUEvictionPolicy) OnAdd(item *shared.CacheItem) {
 	// Add the item to the end of the order slice. The first item in the slice is the most recently used
-	p.order = append(p.order, item)
+	p.order.Set(item.Key, item)
 }
 
 func (p *LRUEvictionPolicy) OnAccess(item *shared.CacheItem) {
 	// Iterate over the order slice to find the item and move it to the front
-	for i, it := range p.order {
-		if it.Key == item.Key {
-			p.order = append(p.order[:i], p.order[i+1:]...)
-			p.order = append([]*shared.CacheItem{item}, p.order...)
-			break
-		}
+	if _, exists := p.order.Get(item.Key); exists {
+		p.order.Delete(item.Key)
+		p.order.Set(item.Key, item)
 	}
 }
 
 func (p *LRUEvictionPolicy) OnEvict() *shared.CacheItem {
 	// Check if the order slice is empty and evict the last item (least recently used)
-	if len(p.order) == 0 {
+	if len(p.order.Values) == 0 {
 		return nil
 	}
-	evicted := p.order[len(p.order)-1]
-	p.order = p.order[:len(p.order)-1]
-	return evicted
+	key := p.order.FirstElement()
+	item, _ := p.order.Get(key)
+	p.order.Delete(key)
+	return item.(*shared.CacheItem)
 }
